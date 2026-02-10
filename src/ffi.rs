@@ -225,8 +225,13 @@ pub unsafe extern "C" fn escpe_scan(
         let key_pem =
             crate::util::canonicalize_if_exists(std::path::Path::new(key_pem), "signing key")?;
         let cert_pem = cert_pem
-            .map(|p| crate::util::canonicalize_if_exists(std::path::Path::new(p), "signing cert"))
-            .transpose()?;
+            .map(|p| {
+                let path = std::path::Path::new(p);
+                // Canonicalize without using utility helpers that may log the raw, tainted path.
+                std::fs::canonicalize(path)
+                    .map(|pb| pb.to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| p.to_string())
+            });
 
         let secret = key.map(|k| secrecy::SecretString::new(k.to_string().into()));
         let db_path = std::path::Path::new(db);
