@@ -24,7 +24,7 @@ p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
 rand = "0.10"
 rcgen = "0.13"
 regex = "1"
-printpdf = "0.7"
+printpdf = "0.9"
 rustls-pki-types = "1"
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
 secrecy = "0.10"
