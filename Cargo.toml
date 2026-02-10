@@ -22,7 +22,7 @@ hmac = "0.12"
 hex = "0.4"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
 rand = "0.9"
-rcgen = "0.13"
+rcgen = "0.14"
 regex = "1"
 printpdf = "0.7"
 rustls-pki-types = "1"
