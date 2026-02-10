@@ -14,6 +14,13 @@ use crate::error::{EscpeError, Result, ResultExt as _};
 use crate::signing::SignerDescriptor;
 use crate::util;
 
+// Decode a base64-encoded certificate without exposing the raw value in error messages.
+fn decode_cert_der_b64(b64: &str) -> Result<Vec<u8>> {
+    crate::util::b64_decode(b64).map_err(|err| {
+        // Avoid including `b64` in the error message to prevent logging sensitive data.
+        EscpeError::Ledger(format!("failed to decode signer certificate (base64): {err}"))
+    })
+}
 pub const LEDGER_SCHEMA_VERSION: i64 = 1;
 
 // ---------------------------------------------------------------------------
@@ -480,7 +487,7 @@ pub fn import_ledger_json(
             .signer
             .cert_der_b64
             .as_deref()
-            .map(crate::util::b64_decode)
+            .map(decode_cert_der_b64)
             .transpose()?;
         let cert_fp = cert_der.as_deref().map(crate::util::sha256_hex);
 
