@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Page
+    x:Class="EscpeWinUI.Views.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:EscpeWinUI"
+    xmlns:views="using:EscpeWinUI.Views"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+    <Page.Content>
+        <Grid Padding="16" RowSpacing="12" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="420" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.ColumnSpan="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4">
+                    <TextBlock FontSize="22" FontWeight="SemiBold" Text="E-SCPE (Offline Provenance Engine)" />
+                    <TextBlock Opacity="0.8" Text="Simulated tag reader - Signed, hash-chained SQLite ledger - Click to test" />
+                </StackPanel>
+                <Button
+                    Grid.Column="1"
+                    x:Name="AboutBtn"
+                    Content="About"
+                    VerticalAlignment="Top"
+                    Click="OnAboutClicked"
+                    Style="{StaticResource Action}" />
+            </Grid>
+
+            <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="10">
+                    <TextBlock FontWeight="SemiBold" Text="Paths" />
+
+                    <TextBlock Text="Ledger DB path" />
+                    <TextBox x:Name="LedgerDbPathBox" />
+
+                    <TextBlock Text="DB password (SQLCipher)" />
+                    <PasswordBox x:Name="DbPasswordBox" PasswordChanged="OnDbPasswordChanged" />
+                    <CheckBox x:Name="RememberDbPasswordBox" Content="Remember password (DPAPI)" Checked="OnRememberDbPasswordChanged" Unchecked="OnRememberDbPasswordChanged" />
+
+                    <TextBlock Text="Keys directory" />
+                    <TextBox x:Name="KeysDirBox" />
+
+                    <TextBlock Text="Audit CSV path (header: serial)" />
+                    <TextBox x:Name="AuditCsvPathBox" />
+
+                    <TextBlock Text="Compliance pack output directory" />
+                    <TextBox x:Name="ComplianceOutDirBox" />
+
+                    <TextBlock FontWeight="SemiBold" Text="Scan settings" />
+                    <TextBlock Text="Serial number" />
+                    <TextBox x:Name="SerialBox" PlaceholderText="e.g. AERO-ALLOY-000042" />
+
+                    <TextBlock Text="CHSH threshold (must be > 2 for Bell violation)" />
+                    <TextBox x:Name="ChshThresholdBox" PlaceholderText="2.0" />
+
+                    <TextBlock FontWeight="SemiBold" Text="Actions" />
+
+                    <Button x:Name="KeygenBtn" Content="1) Generate Dev Signing Key + Cert" Click="OnKeygenClicked" Style="{StaticResource PrimaryAction}" />
+                    <Button x:Name="InitLedgerBtn" Content="2) Initialize Ledger" Click="OnInitLedgerClicked" Style="{StaticResource Action}" />
+                    <Button x:Name="ScanBtn" Content="3) Scan + Verify + Append Entry" Click="OnScanClicked" Style="{StaticResource Action}" />
+                    <Button x:Name="VerifyBtn" Content="4) Verify Ledger Integrity" Click="OnVerifyClicked" Style="{StaticResource Action}" />
+                    <Button x:Name="AuditBtn" Content="Batch Audit CSV + Generate Compliance Pack" Click="OnAuditClicked" Style="{StaticResource Action}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="ClearLogBtn" Content="Clear log" Click="OnClearLogClicked" Style="{StaticResource Action}" />
+                        <Button x:Name="OpenOutDirBtn" Content="Open compliance folder" Click="OnOpenComplianceDirClicked" Style="{StaticResource Action}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Grid Grid.Row="1" Grid.Column="1" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock FontWeight="SemiBold" Text="Run log" />
+                    <TextBlock x:Name="StatusText" Opacity="0.8" Text="Idle" />
+                </StackPanel>
+
+                <ProgressBar
+                    Grid.Row="1"
+                    x:Name="AuditProgressBar"
+                    Height="6"
+                    IsIndeterminate="True"
+                    Visibility="Collapsed" />
+
+                <ListView
+                    Grid.Row="2"
+                    x:Name="LogList"
+                    SelectionMode="None"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="views:LogEntry">
+                            <TextBlock
+                                FontFamily="Consolas"
+                                TextWrapping="Wrap"
+                                Foreground="{x:Bind Brush}"
+                                Text="{x:Bind Message}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Grid>
+    </Page.Content>
+</Page>

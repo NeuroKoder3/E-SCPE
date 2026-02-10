@@ -1,0 +1,46 @@
+# cargo-deny configuration for E-SCPE supply-chain security.
+# Install: cargo install cargo-deny
+# Run:     cargo deny check
+#
+# Docs: https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# The advisories section configures vulnerability auditing
+vulnerability = "deny"
+unmaintained = "warn"
+yanked = "warn"
+notice = "warn"
+
+[licenses]
+# Allow commonly used permissive licenses.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "OpenSSL",
+    "CC0-1.0",
+]
+copyleft = "deny"
+unlicensed = "deny"
+
+# The Proprietary license is our own crate.
+[[licenses.exceptions]]
+allow = ["Proprietary"]
+name = "escpe"
+
+[bans]
+# Deny multiple versions of the same crate to keep binary size down.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only allow crates from crates.io.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

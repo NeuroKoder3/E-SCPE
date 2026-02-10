@@ -1,0 +1,37 @@
+# E-SCPE Configuration File
+# Copy to escpe.toml (next to the binary) or %LOCALAPPDATA%\E-SCPE\config.toml
+
+[paths]
+# Ledger database file (SQLite / SQLCipher).
+db = "escpe-ledger.db"
+# Directory for signing keys and certificates.
+keys_dir = "escpe-keys"
+# Default output directory for compliance packs.
+compliance_out_dir = "escpe-compliance-pack"
+
+[scan]
+# CHSH threshold for Bell-inequality verification.
+# Must be > 2.0 for a strict Bell-violation check.  Tsirelson bound ~ 2.828.
+chsh_threshold = 2.0
+
+[logging]
+# Log level: trace, debug, info, warn, error
+level = "info"
+# Write structured JSON-lines logs to this file for SIEM integration.
+# Leave empty to disable file logging.
+json_log_file = ""
+# Set to true to emit JSON on stdout (e.g. for container log pipelines).
+json_stdout = false
+
+[license]
+# Path to the license JSON file.
+path = "escpe-license.json"
+# Vendor public key (base64-encoded Ed25519).  Embedded at compile time by default;
+# override here only for development / alternate vendor keys.
+# vendor_pubkey_b64 = ""
+
+[security]
+# SQLCipher database encryption key.
+# WARNING: prefer setting via ESCPE_DB_KEY environment variable instead of
+# storing the key in a config file.
+# db_key = ""

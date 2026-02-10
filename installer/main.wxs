@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?define PublishDir="..\winui\bin\Release\net8.0-windows10.0.19041.0"?>
+
+  <Package
+    Name="E-SCPE"
+    Manufacturer="E-SCPE"
+    Version="1.0.0"
+    UpgradeCode="2B9D8C4C-36D2-4C3B-9D0F-2AA3B49C6F8E">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of E-SCPE is already installed." />
+    <MediaTemplate />
+    <Property Id="NET8DESKTOP">
+      <RegistrySearch
+        Root="HKLM"
+        Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
+        Name="Version"
+        Type="raw" />
+    </Property>
+    <Property Id="VCRUNTIME14">
+      <RegistrySearch
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64"
+        Name="Installed"
+        Type="raw" />
+    </Property>
+    <Condition Message=".NET 8 Desktop Runtime (x64) is required.">NET8DESKTOP</Condition>
+    <Condition Message="Microsoft Visual C++ 2015-2022 Runtime (x64) is required.">VCRUNTIME14 = "1"</Condition>
+
+    <Feature Id="MainFeature" Title="E-SCPE" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="E-SCPE" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="E-SCPE" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="EscpeWinUIExe" Guid="*">
+        <File Source="$(var.PublishDir)\EscpeWinUI.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="EscpeCoreDll" Guid="*">
+        <File Source="$(var.PublishDir)\escpe_core.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="EscpeCliExe" Guid="*">
+        <File Source="$(var.PublishDir)\escpe.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="WinRtRuntime" Guid="*">
+        <File Source="$(var.PublishDir)\WinRT.Runtime.dll" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="Shortcuts" Directory="ApplicationProgramsFolder">
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="E-SCPE"
+          Target="[INSTALLFOLDER]EscpeWinUI.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\E-SCPE" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut
+          Id="DesktopShortcut"
+          Directory="DesktopFolder"
+          Name="E-SCPE"
+          Target="[INSTALLFOLDER]EscpeWinUI.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\E-SCPE" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

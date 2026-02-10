@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "EscpeWinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "EscpeWinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

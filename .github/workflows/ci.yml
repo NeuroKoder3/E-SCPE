@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Dependency audit (cargo deny)
+        run: cargo deny check
+        continue-on-error: true
+
+      - name: Cargo test
+        run: cargo test
+
+      - name: Cargo build (release)
+        run: cargo build --release
+
+      - name: Dotnet restore (test project)
+        run: dotnet restore winui.tests/EscpeWinUI.Tests.csproj
+
+      - name: Dotnet test (C# unit tests)
+        run: dotnet test winui.tests/EscpeWinUI.Tests.csproj -c Release --no-restore
+
+      - name: Dotnet build (WinUI)
+        run: dotnet build winui/EscpeWinUI.csproj -c Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: escpe-binaries
+          path: |
+            target/release/escpe.exe
+            target/release/escpe_core.dll

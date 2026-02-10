@@ -1,0 +1,54 @@
+[package]
+name = "escpe"
+version = "1.0.0"
+edition = "2021"
+description = "Entanglement-Enhanced Supply-Chain Provenance Engine (E-SCPE)"
+license = "Proprietary"
+readme = "README.md"
+build = "build.rs"
+
+[lib]
+name = "escpe_core"
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8"] }
+pbkdf2 = "0.12"
+hmac = "0.12"
+hex = "0.4"
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
+rand = "0.9"
+rcgen = "0.13"
+regex = "1"
+printpdf = "0.7"
+rustls-pki-types = "1"
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+secrecy = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+time = { version = "0.3", features = ["macros", "formatting", "serde"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+x509-cert = { version = "0.2", features = ["pem"] }
+x509-parser = "0.17"
+zeroize = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+libloading = "0.8"
+tempfile = "3"
+
+[[bench]]
+name = "core_bench"
+harness = false
