@@ -1,6 +1,6 @@
 //! Quantum-tag data structures and the simulated tag reader.
 
-use rand::{Rng as _, SeedableRng as _};
+use rand::{RngExt as _, SeedableRng as _};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -68,7 +68,7 @@ pub trait TagReader {
 // ---------------------------------------------------------------------------
 
 /// A deterministic simulated reader for development and CI.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SimulatedTagReader {
     /// Total coincidence counts per setting.
     pub counts_per_setting: u64,

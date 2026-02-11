@@ -225,7 +225,7 @@ impl Ledger {
             .as_deref()
             .map(crate::util::b64_decode)
             .transpose()
-            .ctx_ledger("decode signer cert_der_b64")?;
+            .map_err(|_| EscpeError::Ledger("decode signer cert_der_b64".into()))?;
         let cert_fp_opt = cert_der_opt.as_deref().map(util::sha256_hex);
 
         tx.execute(
@@ -481,7 +481,8 @@ pub fn import_ledger_json(
             .cert_der_b64
             .as_deref()
             .map(crate::util::b64_decode)
-            .transpose()?;
+            .transpose()
+            .map_err(|_| EscpeError::Ledger("decode signer cert_der_b64 (import)".into()))?;
         let cert_fp = cert_der.as_deref().map(crate::util::sha256_hex);
 
         conn.execute(
@@ -592,8 +593,9 @@ fn derive_db_key(passphrase: &str, salt: &[u8]) -> [u8; 32] {
 
 /// Generate a random salt for a new database.
 fn generate_db_salt() -> [u8; DB_SALT_LEN] {
-    use rand::RngCore as _;
+    use rand::Rng as _;
     let mut salt = [0u8; DB_SALT_LEN];
+    // rand 0.10 uses `rand::rng()` (not `thread_rng()`).
     rand::rng().fill_bytes(&mut salt);
     salt
 }

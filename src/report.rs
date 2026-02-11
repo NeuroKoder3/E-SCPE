@@ -170,9 +170,9 @@ fn build_audit_pdf(manifest: &CompliancePackManifest, entries: &[LedgerEntry]) -
 
     let mut current_page = page1;
     let mut layer = doc.get_page(current_page).get_layer(layer1);
-    let mut y = 280.0_f32;
-    let x = 15.0_f32;
-    let line_height = 6.0_f32;
+    let mut y = 280.0_f64;
+    let x = 15.0_f64;
+    let line_height = 6.0_f64;
 
     for (bold, size, text) in lines {
         if y < 20.0 {
@@ -182,7 +182,7 @@ fn build_audit_pdf(manifest: &CompliancePackManifest, entries: &[LedgerEntry]) -
             y = 280.0;
         }
         let font = if bold { &font_bold } else { &font_regular };
-        layer.use_text(text, size as f32, Mm(x), Mm(y), font);
+        layer.use_text(text, size, Mm(x), Mm(y), font);
         y -= line_height;
     }
 

@@ -24,7 +24,9 @@ p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
 rand = "0.10"
 rcgen = "0.13"
 regex = "1"
-printpdf = "0.9"
+# NOTE: `printpdf` 0.9+ removed the legacy PDF-writing APIs used by `src/report.rs`.
+# Pin to a compatible series for the lightweight fallback PDF generator.
+printpdf = "0.5"
 rustls-pki-types = "1"
 rusqlite = { version = "0.38", features = ["bundled-sqlcipher-vendored-openssl"] }
 secrecy = "0.10"

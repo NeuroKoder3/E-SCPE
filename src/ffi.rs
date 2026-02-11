@@ -71,10 +71,44 @@ thread_local! {
     static LAST_ERROR: RefCell<CString> = RefCell::new(CString::default());
 }
 
+/// Sanitize error message before exposing via FFI to avoid cleartext logging of paths/secrets.
+fn sanitize_error_message(msg: &str) -> String {
+    const MAX_LEN: usize = 256;
+    let mut out = String::with_capacity(MAX_LEN.min(msg.len()));
+    for line in msg.lines().take(2) {
+        for word in line.split_whitespace() {
+            // Redact path-like and base64-like segments
+            let redacted = if word.contains(std::path::MAIN_SEPARATOR) || word.contains('/') {
+                "[path]"
+            } else if word.len() > 40 && word.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=') {
+                "[redacted]"
+            } else {
+                word
+            };
+            if !out.is_empty() {
+                out.push(' ');
+            }
+            out.push_str(redacted);
+            if out.len() >= MAX_LEN {
+                break;
+            }
+        }
+        if out.len() >= MAX_LEN {
+            break;
+        }
+    }
+    if out.is_empty() {
+        out.push_str("operation failed");
+    }
+    out.truncate(MAX_LEN);
+    out
+}
+
 fn set_last_error(msg: &str) {
+    let safe = sanitize_error_message(msg);
     LAST_ERROR.with(|e| {
         *e.borrow_mut() =
-            CString::new(msg).unwrap_or_else(|_| CString::new("unknown error (null byte in message)").unwrap());
+            CString::new(safe).unwrap_or_else(|_| CString::new("unknown error").unwrap());
     });
 }
 
@@ -240,8 +274,8 @@ pub unsafe extern "C" fn escpe_scan(
             .or_else(|_| crate::ledger::Ledger::create_new(db_path, secret.as_ref()))?;
 
         let signer = crate::signing::P256PemSigner::from_key_pem_and_optional_cert_pem(
-            &key_pem,
-            cert_pem.as_deref(),
+            std::path::Path::new(&key_pem),
+            cert_pem.as_deref().map(std::path::Path::new),
             None,
         )?;
 
