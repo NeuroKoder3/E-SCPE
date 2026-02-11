@@ -16,6 +16,14 @@ use crate::util;
 
 pub const LEDGER_SCHEMA_VERSION: i64 = 1;
 
+// Decode a base64-encoded certificate without leaking the raw base64 value into error strings.
+fn decode_cert_der_b64(b64: &str) -> Result<Vec<u8>> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|_| EscpeError::Ledger("invalid signer cert_der_b64".into()))
+}
+
 // ---------------------------------------------------------------------------
 // Data types
 // ---------------------------------------------------------------------------
@@ -223,9 +231,8 @@ impl Ledger {
             .signer
             .cert_der_b64
             .as_deref()
-            .map(crate::util::b64_decode)
-            .transpose()
-            .map_err(|_| EscpeError::Ledger("decode signer cert_der_b64".into()))?;
+            .map(decode_cert_der_b64)
+            .transpose()?;
         let cert_fp_opt = cert_der_opt.as_deref().map(util::sha256_hex);
 
         tx.execute(
@@ -480,9 +487,8 @@ pub fn import_ledger_json(
             .signer
             .cert_der_b64
             .as_deref()
-            .map(crate::util::b64_decode)
-            .transpose()
-            .map_err(|_| EscpeError::Ledger("decode signer cert_der_b64 (import)".into()))?;
+            .map(decode_cert_der_b64)
+            .transpose()?;
         let cert_fp = cert_der.as_deref().map(crate::util::sha256_hex);
 
         conn.execute(

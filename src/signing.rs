@@ -62,7 +62,8 @@ impl P256PemSigner {
         key_passphrase: Option<&SecretString>,
     ) -> Result<Self> {
         let key_pem = std::fs::read_to_string(key_pem_path)
-            .map_err(|e| EscpeError::Signing(format!("read key pem {}: {e}", key_pem_path.display())))?;
+            // Avoid including key paths in error strings (CodeQL cleartext logging).
+            .map_err(|e| EscpeError::Signing(format!("read key pem failed: {e}")))?;
 
         if key_passphrase.is_some() {
             return Err(EscpeError::Signing(
@@ -75,7 +76,8 @@ impl P256PemSigner {
 
         let (key_id, cert_der_b64) = if let Some(cert_pem_path) = cert_pem_path {
             let cert_pem_bytes = std::fs::read(cert_pem_path)
-                .map_err(|e| EscpeError::Signing(format!("read cert pem {}: {e}", cert_pem_path.display())))?;
+                // Avoid including cert paths in error strings (CodeQL cleartext logging).
+                .map_err(|e| EscpeError::Signing(format!("read cert pem failed: {e}")))?;
             let (_, pem) = parse_x509_pem(&cert_pem_bytes).ctx_signing("parse x509 pem")?;
             let cert_der = pem.contents;
             let fp = util::sha256_hex(&cert_der);
