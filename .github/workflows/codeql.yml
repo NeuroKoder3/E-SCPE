@@ -1,0 +1,57 @@
+# CodeQL analysis with manual C# build for better analysis quality
+# See: https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
+
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  schedule:
+    - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ "csharp" ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL (C# with manual build)
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+          dependency-caching: true
+
+      # Rust artifacts required by WinUI project (Content items)
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust release artifacts
+        run: cargo build --release
+
+      # Manual C# build so CodeQL can resolve call targets (improves "calls with call target" metric)
+      - name: Build C# (WinUI and tests)
+        run: |
+          dotnet restore winui/EscpeWinUI.csproj
+          dotnet build winui/EscpeWinUI.csproj -c Release --no-restore
+          dotnet restore winui.tests/EscpeWinUI.Tests.csproj
+          dotnet build winui.tests/EscpeWinUI.Tests.csproj -c Release --no-restore
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
