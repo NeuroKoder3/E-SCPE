@@ -4,6 +4,7 @@
 name: "CodeQL"
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "master", "main" ]
   pull_request:
@@ -14,7 +15,7 @@ on:
 jobs:
   analyze:
     name: Analyze
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       security-events: write
       actions: read
@@ -23,28 +24,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ "csharp" ]
+        include:
+          # C# analysis (best accuracy with manual build)
+          - language: csharp
+            build-mode: manual
+            runner: windows-latest
+          # Rust analysis (default setup uses build-mode none; keep consistent here)
+          - language: rust
+            build-mode: none
+            runner: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Initialize CodeQL (C# with manual build)
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          build-mode: manual
-          dependency-caching: true
+          build-mode: ${{ matrix.build-mode }}
+          dependency-caching: ${{ matrix.language == 'csharp' && 'true' || 'false' }}
 
-      # Rust artifacts required by WinUI project (Content items)
+      # ----- C# manual build (also builds Rust artifacts needed by WinUI Content items) -----
+      - name: Install .NET 8
+        if: ${{ matrix.language == 'csharp' }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
       - name: Set up Rust
+        if: ${{ matrix.language == 'csharp' }}
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Rust release artifacts
+        if: ${{ matrix.language == 'csharp' }}
         run: cargo build --release
 
-      # Manual C# build so CodeQL can resolve call targets (improves "calls with call target" metric)
       - name: Build C# (WinUI and tests)
+        if: ${{ matrix.language == 'csharp' }}
         run: |
           dotnet restore winui/EscpeWinUI.csproj
           dotnet build winui/EscpeWinUI.csproj -c Release --no-restore
