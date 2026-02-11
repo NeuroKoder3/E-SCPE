@@ -54,9 +54,26 @@ fn full_pipeline_smoke() -> Result<()> {
     let entries = ledger.iter_entries()?;
     assert_eq!(entries.len(), 2);
 
-    // Hash-chain integrity is verified; signature verification is intentionally skipped because
-    // certificate material is not persisted in the ledger in this build.
-    ledger.verify_integrity(|_, _, _| Ok(()))?;
+    // Verify hash-chain integrity and signatures fully offline using embedded signer certs.
+    ledger.verify_integrity(|e, payload_hash, sig_der| {
+        let cert_b64 = e
+            .signer
+            .cert_der_b64
+            .as_deref()
+            .ok_or_else(|| escpe_core::error::EscpeError::Ledger(format!(
+                "missing signer certificate at seq {}",
+                e.seq
+            )))?;
+        let cert_der = escpe_core::util::b64_decode(cert_b64)?;
+        let fp = escpe_core::util::sha256_hex(&cert_der);
+        if fp != e.signer.key_id {
+            return Err(escpe_core::error::EscpeError::Ledger(format!(
+                "signer certificate fingerprint mismatch at seq {}",
+                e.seq
+            )));
+        }
+        escpe_core::signing::verify_p256_ecdsa_der_sig_with_cert_der(&cert_der, payload_hash, sig_der)
+    })?;
 
     report::write_compliance_pack(&out_dir, ledger.meta(), &entries)?;
     assert!(out_dir.join("manifest.json").exists());

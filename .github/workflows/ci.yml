@@ -26,13 +26,19 @@ jobs:
 
       - name: Dependency audit (cargo deny)
         run: cargo deny check
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Cargo test
         run: cargo test
 
       - name: Cargo build (release)
         run: cargo build --release
+
+      - name: Install cargo-cyclonedx
+        run: cargo install cargo-cyclonedx --locked
+
+      - name: Generate SBOM (CycloneDX)
+        run: cargo cyclonedx --format json --output-file sbom.cdx.json
 
       - name: Dotnet restore (test project)
         run: dotnet restore winui.tests/EscpeWinUI.Tests.csproj
@@ -50,3 +56,4 @@ jobs:
           path: |
             target/release/escpe.exe
             target/release/escpe_core.dll
+            sbom.cdx.json

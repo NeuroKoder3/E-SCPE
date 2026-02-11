@@ -57,6 +57,8 @@ fn ledger_hash_chain_detects_tamper() -> Result<()> {
     let signer = SignerDescriptor {
         key_id,
         kind: "test-p256".to_string(),
+        cert_der_b64: None,
+        cert_sha256_hex: None,
     };
 
     let payload_json = r#"{"schema":"test","v":1}"#.to_string();

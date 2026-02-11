@@ -66,8 +66,9 @@ fn bench_ledger_append(c: &mut Criterion) {
     let key_id = util::sha256_hex(vk.to_encoded_point(false).as_bytes());
     let signer = SignerDescriptor {
         key_id,
-        cert_der_b64: None,
         kind: "bench".into(),
+        cert_der_b64: None,
+        cert_sha256_hex: None,
     };
 
     let payload = r#"{"bench":true}"#.to_string();
@@ -104,8 +105,9 @@ fn bench_ledger_verify(c: &mut Criterion) {
     let key_id = util::sha256_hex(vk.to_encoded_point(false).as_bytes());
     let signer = SignerDescriptor {
         key_id,
-        cert_der_b64: None,
         kind: "bench".into(),
+        cert_der_b64: None,
+        cert_sha256_hex: None,
     };
 
     for i in 0..50 {

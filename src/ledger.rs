@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension as _, TransactionBehavior};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::error::{EscpeError, Result, ResultExt as _};
@@ -76,8 +76,14 @@ impl Ledger {
 
         let conn = Connection::open(db_path)
             .map_err(|e| EscpeError::Ledger(format!("open db {}: {e}", db_path.display())))?;
-        // For new databases, generate a fresh random salt.
-        let cipher_version = apply_sqlcipher_key_and_probe(&conn, db_key, None)?;
+        // For new encrypted databases, generate a single per-database salt and use it
+        // consistently for both key derivation and persistence.
+        let new_salt = db_key.map(|_| generate_db_salt());
+        let cipher_version = apply_sqlcipher_key_and_probe(
+            &conn,
+            db_key,
+            new_salt.as_ref().map(|s| s.as_slice()),
+        )?;
 
         conn.execute_batch(
             r#"
@@ -136,8 +142,7 @@ impl Ledger {
         }
 
         // Persist the per-database salt used for key derivation.
-        if db_key.is_some() {
-            let salt = generate_db_salt();
+        if let Some(salt) = new_salt {
             conn.execute(
                 "INSERT OR REPLACE INTO meta(k,v) VALUES (?1,?2)",
                 params!["db_salt", hex::encode(salt)],
@@ -219,6 +224,34 @@ impl Ledger {
         entry_preimage.extend_from_slice(input.signer.key_id.as_bytes());
         let entry_hash = util::sha256(&entry_preimage);
 
+        // Persist signer certificate material if available (enables offline signature verification).
+        let signer_cert_der: Option<Vec<u8>> = input
+            .signer
+            .cert_der_b64
+            .as_deref()
+            .map(util::b64_decode)
+            .transpose()?;
+        let signer_cert_fp: Option<String> = if let Some(ref der) = signer_cert_der {
+            Some(util::sha256_hex(der))
+        } else {
+            None
+        };
+        if let Some(ref fp) = signer_cert_fp {
+            // Enforce consistency: when a cert is present, `key_id` must equal the cert fingerprint.
+            if input.signer.key_id != *fp {
+                return Err(EscpeError::Ledger(
+                    "signer key_id does not match signer certificate fingerprint".into(),
+                ));
+            }
+            if let Some(ref explicit_fp) = input.signer.cert_sha256_hex {
+                if explicit_fp != fp {
+                    return Err(EscpeError::Ledger(
+                        "signer cert_sha256_hex does not match signer certificate fingerprint".into(),
+                    ));
+                }
+            }
+        }
+
         tx.execute(
             r#"
             INSERT INTO entries(
@@ -237,8 +270,8 @@ impl Ledger {
                 input.signature_der,
                 input.signer.key_id,
                 input.signer.kind,
-                None::<Vec<u8>>,
-                None::<String>,
+                signer_cert_der,
+                signer_cert_fp,
             ],
         )
         .ctx_ledger("insert ledger entry")?;
@@ -270,7 +303,7 @@ impl Ledger {
             .prepare(
                 r#"
                 SELECT seq, ts_utc, serial, payload_json, payload_hash, prev_hash, entry_hash,
-                       signature_der, signer_key_id, signer_kind
+                       signature_der, signer_key_id, signer_kind, signer_cert_der, signer_cert_fp
                 FROM entries
                 ORDER BY seq ASC
                 "#,
@@ -290,6 +323,8 @@ impl Ledger {
             let signature_der: Vec<u8> = row.get(7)?;
             let signer_key_id: String = row.get(8)?;
             let signer_kind: String = row.get(9)?;
+            let signer_cert_der: Option<Vec<u8>> = row.get(10)?;
+            let signer_cert_fp: Option<String> = row.get(11)?;
 
             out.push(LedgerEntry {
                 seq,
@@ -303,6 +338,8 @@ impl Ledger {
                 signer: SignerDescriptor {
                     key_id: signer_key_id,
                     kind: signer_kind,
+                    cert_der_b64: signer_cert_der.as_deref().map(util::b64_encode),
+                    cert_sha256_hex: signer_cert_fp,
                 },
             });
         }
@@ -402,7 +439,12 @@ pub fn import_ledger_json(
 
     let conn = Connection::open(db_path)
         .map_err(|e| EscpeError::Ledger(format!("open db {}: {e}", db_path.display())))?;
-    let cipher_version = apply_sqlcipher_key_and_probe(&conn, db_key, None)?;
+    let new_salt = db_key.map(|_| generate_db_salt());
+    let cipher_version = apply_sqlcipher_key_and_probe(
+        &conn,
+        db_key,
+        new_salt.as_ref().map(|s| s.as_slice()),
+    )?;
 
     conn.execute_batch(
         r#"
@@ -455,6 +497,12 @@ pub fn import_ledger_json(
             params!["sqlcipher_cipher_version", cv],
         )?;
     }
+    if let Some(salt) = new_salt {
+        conn.execute(
+            "INSERT OR REPLACE INTO meta(k,v) VALUES (?1,?2)",
+            params!["db_salt", hex::encode(salt)],
+        )?;
+    }
 
     // Replay entries.
     for e in &export.entries {
@@ -465,6 +513,24 @@ pub fn import_ledger_json(
         let entry_hash = hex::decode(&e.entry_hash_hex)
             .map_err(|err| EscpeError::Ledger(format!("decode entry_hash: {err}")))?;
         let sig_der = crate::util::b64_decode(&e.signature_b64)?;
+
+        let signer_cert_der: Option<Vec<u8>> = e
+            .signer
+            .cert_der_b64
+            .as_deref()
+            .map(crate::util::b64_decode)
+            .transpose()?;
+        let signer_cert_fp: Option<String> = signer_cert_der
+            .as_deref()
+            .map(crate::util::sha256_hex);
+        if let Some(ref fp) = signer_cert_fp {
+            if e.signer.key_id != *fp {
+                return Err(EscpeError::Ledger(format!(
+                    "import entry seq {}: signer key_id does not match certificate fingerprint",
+                    e.seq
+                )));
+            }
+        }
 
         conn.execute(
             r#"
@@ -484,8 +550,8 @@ pub fn import_ledger_json(
                 sig_der,
                 e.signer.key_id,
                 e.signer.kind,
-                None::<Vec<u8>>,
-                None::<String>,
+                signer_cert_der,
+                signer_cert_fp,
             ],
         )
         .ctx_ledger("insert imported entry")?;
@@ -499,8 +565,23 @@ pub fn import_ledger_json(
         },
     };
 
-    // Verify integrity of imported data.
-    ledger.verify_integrity(|_, _, _| Ok(()))?;
+    // Verify integrity of imported data (hash-chain + signatures).
+    ledger.verify_integrity(|e, payload_hash, sig_der| {
+        let cert_b64 = e
+            .signer
+            .cert_der_b64
+            .as_deref()
+            .ok_or_else(|| EscpeError::Ledger(format!("missing signer certificate at seq {}", e.seq)))?;
+        let cert_der = crate::util::b64_decode(cert_b64)?;
+        let fp = crate::util::sha256_hex(&cert_der);
+        if fp != e.signer.key_id {
+            return Err(EscpeError::Ledger(format!(
+                "signer certificate fingerprint mismatch at seq {}",
+                e.seq
+            )));
+        }
+        crate::signing::verify_p256_ecdsa_der_sig_with_cert_der(&cert_der, payload_hash, sig_der)
+    })?;
     info!(entries = export.entries.len(), "ledger imported and verified");
     Ok(ledger)
 }
@@ -515,13 +596,9 @@ fn apply_sqlcipher_key_and_probe(
     stored_salt: Option<&[u8]>,
 ) -> Result<Option<String>> {
     if let Some(key) = db_key {
-        // If we have a stored salt, use it; otherwise generate a new one.
-        // For new databases the caller passes None and we generate fresh salt.
-        // The caller must persist the salt in the meta table.
-        let salt = match stored_salt {
-            Some(s) => s.to_vec(),
-            None => generate_db_salt().to_vec(),
-        };
+        let salt = stored_salt
+            .ok_or_else(|| EscpeError::Ledger("missing db_salt for encrypted database".into()))?
+            .to_vec();
         let derived = derive_db_key(key.expose_secret(), &salt);
         let key_hex = hex::encode(derived);
         let pragma_key = format!("x'{}'", key_hex);
@@ -541,7 +618,9 @@ fn apply_sqlcipher_key_and_probe(
         .unwrap_or(None);
 
     if db_key.is_some() && cipher_version.is_none() {
-        warn!("SQLCipher key provided but cipher_version probe failed. DB may be unencrypted.");
+        return Err(EscpeError::Ledger(
+            "SQLCipher key provided but SQLCipher not active (cipher_version probe failed)".into(),
+        ));
     }
     if let Some(ref cv) = cipher_version {
         info!(sqlcipher_cipher_version = %cv, "SQLCipher detected");
@@ -628,6 +707,8 @@ mod tests {
                 signer: SignerDescriptor {
                     key_id,
                     kind: "test".to_string(),
+                    cert_der_b64: None,
+                    cert_sha256_hex: None,
                 },
             })
             .unwrap();
@@ -650,6 +731,8 @@ mod tests {
         let signer = SignerDescriptor {
             key_id,
             kind: "test".to_string(),
+            cert_der_b64: None,
+            cert_sha256_hex: None,
         };
 
         let payload = r#"{"v":1}"#.to_string();

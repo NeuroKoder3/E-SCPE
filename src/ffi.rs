@@ -251,23 +251,33 @@ pub unsafe extern "C" fn escpe_scan(
             .ok_or_else(|| EscpeError::Validation("serial is null".into()))?;
         let key_pem = unsafe { ptr_to_str(signing_key_pem) }
             .ok_or_else(|| EscpeError::Validation("signing_key_pem is null".into()))?;
-        let _cert_pem = unsafe { ptr_to_str(signing_cert_pem) };
+        let cert_pem = unsafe { ptr_to_str(signing_cert_pem) };
 
         crate::util::validate_path(std::path::Path::new(db), "db")?;
+        crate::util::validate_serial(ser)?;
+        crate::util::validate_chsh_threshold(chsh_threshold)?;
         crate::util::validate_path(std::path::Path::new(key_pem), "signing key")?;
+        let cert_pem = cert_pem.ok_or_else(|| {
+            EscpeError::Validation("signing_cert_pem is required for enterprise verification".into())
+        })?;
 
         let key_pem =
             crate::util::canonicalize_if_exists(std::path::Path::new(key_pem), "signing key")?;
+        let cert_pem =
+            crate::util::canonicalize_if_exists(std::path::Path::new(cert_pem), "signing cert")?;
 
         let secret = key.map(|k| secrecy::SecretString::new(k.to_string().into()));
         let db_path = std::path::Path::new(db);
 
-        let mut ledger = crate::ledger::Ledger::open_existing(db_path, secret.as_ref())
-            .or_else(|_| crate::ledger::Ledger::create_new(db_path, secret.as_ref()))?;
+        let mut ledger = if db_path.exists() {
+            crate::ledger::Ledger::open_existing(db_path, secret.as_ref())?
+        } else {
+            crate::ledger::Ledger::create_new(db_path, secret.as_ref())?
+        };
 
         let signer = crate::signing::P256PemSigner::from_key_pem_and_optional_cert_pem(
             std::path::Path::new(&key_pem),
-            None,
+            Some(cert_pem.as_path()),
             None,
         )?;
 
@@ -328,9 +338,25 @@ pub unsafe extern "C" fn escpe_verify_ledger(
             crate::ledger::Ledger::open_existing(std::path::Path::new(db), secret.as_ref())?;
         let entry_count = ledger.iter_entries()?.len();
 
-        // Hash-chain integrity is always verified. Signature verification is intentionally skipped
-        // in this build because certificate material is not persisted in the ledger.
-        ledger.verify_integrity(|_, _, _| Ok(()))?;
+        // Hash-chain integrity and signatures are verified. Certificates are embedded per-entry
+        // for fully offline verification.
+        ledger.verify_integrity(|e, payload_hash, sig_der| {
+            let cert_b64 = e
+                .signer
+                .cert_der_b64
+                .as_deref()
+                .ok_or_else(|| EscpeError::Ledger(format!("missing signer certificate at seq {}", e.seq)))?;
+            let cert_der = crate::util::b64_decode(cert_b64)?;
+            let fp = crate::util::sha256_hex(&cert_der);
+            if fp != e.signer.key_id {
+                return Err(EscpeError::Ledger(format!(
+                    "signer certificate fingerprint mismatch at seq {}",
+                    e.seq
+                )));
+            }
+            crate::signing::verify_p256_ecdsa_der_sig_with_cert_der(&cert_der, payload_hash, sig_der)?;
+            Ok(())
+        })?;
 
         let info = serde_json::json!({
             "status": "ok",
@@ -421,17 +447,33 @@ pub unsafe extern "C" fn escpe_audit(
             .ok_or_else(|| EscpeError::Validation("out_dir is null".into()))?;
         let key_pem = unsafe { ptr_to_str(signing_key_pem) }
             .ok_or_else(|| EscpeError::Validation("signing_key_pem is null".into()))?;
-        let _cert_pem = unsafe { ptr_to_str(signing_cert_pem) };
+        let cert_pem = unsafe { ptr_to_str(signing_cert_pem) };
+
+        crate::util::validate_path(std::path::Path::new(db), "db")?;
+        crate::util::validate_chsh_threshold(chsh_threshold)?;
+        crate::util::validate_path(std::path::Path::new(csv), "csv")?;
+        crate::util::validate_path(std::path::Path::new(out), "out_dir")?;
+        crate::util::validate_path(std::path::Path::new(key_pem), "signing key")?;
+        let cert_pem = cert_pem.ok_or_else(|| {
+            EscpeError::Validation("signing_cert_pem is required for enterprise verification".into())
+        })?;
+
+        let key_pem = crate::util::canonicalize_if_exists(std::path::Path::new(key_pem), "signing key")?;
+        let cert_pem =
+            crate::util::canonicalize_if_exists(std::path::Path::new(cert_pem), "signing cert")?;
 
         let secret = key.map(|k| secrecy::SecretString::new(k.to_string().into()));
         let db_path = std::path::Path::new(db);
 
-        let mut ledger = crate::ledger::Ledger::open_existing(db_path, secret.as_ref())
-            .or_else(|_| crate::ledger::Ledger::create_new(db_path, secret.as_ref()))?;
+        let mut ledger = if db_path.exists() {
+            crate::ledger::Ledger::open_existing(db_path, secret.as_ref())?
+        } else {
+            crate::ledger::Ledger::create_new(db_path, secret.as_ref())?
+        };
 
         let signer = crate::signing::P256PemSigner::from_key_pem_and_optional_cert_pem(
-            std::path::Path::new(key_pem),
-            None,
+            std::path::Path::new(&key_pem),
+            Some(cert_pem.as_path()),
             None,
         )?;
 
@@ -467,6 +509,7 @@ pub unsafe extern "C" fn escpe_audit(
                 )));
             }
             let row = rec.map_err(|e| EscpeError::Report(format!("parse csv row: {e}")))?;
+            crate::util::validate_serial(&row.serial)?;
             let scan = crate::tag::TagReader::scan(&mut reader, &row.serial)?;
             let chsh_res = crate::chsh::compute_chsh(&scan, chsh_threshold)?;
             if !chsh_res.passed {

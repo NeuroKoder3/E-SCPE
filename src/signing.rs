@@ -27,6 +27,18 @@ pub struct SignerDescriptor {
     pub key_id: String,
     /// Human-readable descriptor (e.g., "p256-ecdsa/pkcs8-pem").
     pub kind: String,
+    /// Optional signer X.509 certificate (DER), base64-encoded.
+    ///
+    /// When present, ledger entries can be verified fully offline without any
+    /// external PKI or certificate distribution channel.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert_der_b64: Option<String>,
+    /// SHA-256 fingerprint (hex) of `cert_der_b64` (if present).
+    ///
+    /// This is redundant with `key_id` (which is also a SHA-256 fingerprint of
+    /// the cert when a cert is present), but kept for clarity and explicitness.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cert_sha256_hex: Option<String>,
 }
 
 /// Trait boundary for all signer implementations.
@@ -74,17 +86,18 @@ impl P256PemSigner {
         let signing_key = SigningKey::from_pkcs8_pem(&key_pem)
             .ctx_signing("parse P-256 PKCS#8 private key")?;
 
-        let key_id = if let Some(cert_pem_path) = cert_pem_path {
+        let (key_id, cert_der_b64, cert_sha256_hex) = if let Some(cert_pem_path) = cert_pem_path {
             let cert_pem_bytes = std::fs::read(cert_pem_path)
                 // Avoid including cert paths in error strings (CodeQL cleartext logging).
                 .map_err(|e| EscpeError::Signing(format!("read cert pem failed: {e}")))?;
             let (_, pem) = parse_x509_pem(&cert_pem_bytes).ctx_signing("parse x509 pem")?;
             let cert_der = pem.contents;
-            util::sha256_hex(&cert_der)
+            let fp = util::sha256_hex(&cert_der);
+            (fp.clone(), Some(util::b64_encode(&cert_der)), Some(fp))
         } else {
             let vk = VerifyingKey::from(&signing_key);
             let pubkey = vk.to_encoded_point(false);
-            util::sha256_hex(pubkey.as_bytes())
+            (util::sha256_hex(pubkey.as_bytes()), None, None)
         };
 
         Ok(Self {
@@ -92,6 +105,8 @@ impl P256PemSigner {
             descriptor: SignerDescriptor {
                 key_id,
                 kind: "p256-ecdsa/pkcs8-pem".to_string(),
+                cert_der_b64,
+                cert_sha256_hex,
             },
         })
     }

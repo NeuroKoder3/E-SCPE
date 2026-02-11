@@ -336,6 +336,8 @@ mod tests {
                 signer: crate::signing::SignerDescriptor {
                     key_id: "kid".into(),
                     kind: "test".into(),
+                    cert_der_b64: None,
+                    cert_sha256_hex: None,
                 },
             },
             LedgerEntry {
@@ -350,6 +352,8 @@ mod tests {
                 signer: crate::signing::SignerDescriptor {
                     key_id: "kid".into(),
                     kind: "test".into(),
+                    cert_der_b64: None,
+                    cert_sha256_hex: None,
                 },
             },
         ];

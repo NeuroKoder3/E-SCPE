@@ -205,6 +205,10 @@ fn main() -> Result<()> {
             signing_cert_pem,
         } => {
             util::validate_path(&signing_key_pem, "signing key")?;
+            anyhow::ensure!(
+                signing_cert_pem.is_some(),
+                "signing_cert_pem is required for enterprise verification (embed cert per entry)"
+            );
             let signing_key_pem = util::canonicalize_if_exists(&signing_key_pem, "signing key")?;
             let signing_cert_pem = signing_cert_pem
                 .as_ref()
@@ -212,9 +216,11 @@ fn main() -> Result<()> {
                 .transpose()?;
             let threshold = chsh_threshold.unwrap_or(cfg.scan.chsh_threshold);
 
-            let mut ledger = Ledger::open_existing(&db_path, db_key.as_ref())
-                .or_else(|_| Ledger::create_new(&db_path, db_key.as_ref()))
-                .context("open/create ledger")?;
+            let mut ledger = if db_path.exists() {
+                Ledger::open_existing(&db_path, db_key.as_ref()).context("open ledger")?
+            } else {
+                Ledger::create_new(&db_path, db_key.as_ref()).context("create ledger")?
+            };
 
             let signer = P256PemSigner::from_key_pem_and_optional_cert_pem(
                 &signing_key_pem,
@@ -261,6 +267,10 @@ fn main() -> Result<()> {
         } => {
             util::validate_path(&csv, "csv")?;
             util::validate_path(&signing_key_pem, "signing key")?;
+            anyhow::ensure!(
+                signing_cert_pem.is_some(),
+                "signing_cert_pem is required for enterprise verification (embed cert per entry)"
+            );
             let csv = util::canonicalize_if_exists(&csv, "csv")?;
             let signing_key_pem = util::canonicalize_if_exists(&signing_key_pem, "signing key")?;
             let signing_cert_pem = signing_cert_pem
@@ -270,9 +280,11 @@ fn main() -> Result<()> {
             let threshold = chsh_threshold.unwrap_or(cfg.scan.chsh_threshold);
             let out = out_dir.unwrap_or(cfg.paths.compliance_out_dir.clone());
 
-            let mut ledger = Ledger::open_existing(&db_path, db_key.as_ref())
-                .or_else(|_| Ledger::create_new(&db_path, db_key.as_ref()))
-                .context("open/create ledger")?;
+            let mut ledger = if db_path.exists() {
+                Ledger::open_existing(&db_path, db_key.as_ref()).context("open ledger")?
+            } else {
+                Ledger::create_new(&db_path, db_key.as_ref()).context("create ledger")?
+            };
 
             let signer = P256PemSigner::from_key_pem_and_optional_cert_pem(
                 &signing_key_pem,
@@ -341,11 +353,29 @@ fn main() -> Result<()> {
             let meta = ledger.meta().clone();
             info!(ledger_id = %meta.ledger_id, schema_version = meta.schema_version, "verifying");
 
-            // Hash-chain integrity is always verified. Signature verification is intentionally
-            // skipped in this build because certificate material is not persisted in the ledger.
+            // Hash-chain integrity and signatures are verified fully offline using per-entry
+            // embedded signer certificates.
             ledger
-                .verify_integrity(|_, _, _| Ok(()))
-                .context("verify integrity")?;
+                .verify_integrity(|e, payload_hash, sig_der| {
+                    let cert_b64 = e
+                        .signer
+                        .cert_der_b64
+                        .as_deref()
+                        .ok_or_else(|| escpe_core::error::EscpeError::Ledger(format!(
+                            "missing signer certificate at seq {}",
+                            e.seq
+                        )))?;
+                    let cert_der = util::b64_decode(cert_b64)?;
+                    let fp = util::sha256_hex(&cert_der);
+                    if fp != e.signer.key_id {
+                        return Err(escpe_core::error::EscpeError::Ledger(format!(
+                            "signer certificate fingerprint mismatch at seq {}",
+                            e.seq
+                        )));
+                    }
+                    signing::verify_p256_ecdsa_der_sig_with_cert_der(&cert_der, payload_hash, sig_der)
+                })
+                .context("verify integrity and signatures")?;
             info!("ledger verification passed");
         }
 
