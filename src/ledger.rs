@@ -593,9 +593,8 @@ fn derive_db_key(passphrase: &str, salt: &[u8]) -> [u8; 32] {
 
 /// Generate a random salt for a new database.
 fn generate_db_salt() -> [u8; DB_SALT_LEN] {
-    use rand::Rng as _;
+    use rand::RngCore as _;
     let mut salt = [0u8; DB_SALT_LEN];
-    // rand 0.10 uses `rand::rng()` (not `thread_rng()`).
     rand::rng().fill_bytes(&mut salt);
     salt
 }

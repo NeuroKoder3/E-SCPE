@@ -1,6 +1,6 @@
 //! Quantum-tag data structures and the simulated tag reader.
 
-use rand::{RngExt as _, SeedableRng as _};
+use rand::{Rng as _, SeedableRng as _};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
