@@ -52,7 +52,8 @@
         <!-- Bundle the Rust engine CLI next to the WinUI app -->
         <Content Include="..\target\release\escpe.exe" Link="escpe.exe" CopyToOutputDirectory="PreserveNewest" />
         <Content Include="..\target\release\escpe_core.dll" Link="escpe_core.dll" CopyToOutputDirectory="PreserveNewest" />
-        <Content Include="..\escpe-vendor-keys\vendor_public.key" Link="vendor_public.key" CopyToOutputDirectory="PreserveNewest" />
+        <!-- The public vendor key is committed at the repo root -->
+        <Content Include="..\vendor_public.key" Link="vendor_public.key" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <!-- 

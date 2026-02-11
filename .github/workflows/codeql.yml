@@ -45,20 +45,22 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           dependency-caching: ${{ matrix.language == 'csharp' && 'true' || 'false' }}
 
-      # ----- C# manual build (also builds Rust artifacts needed by WinUI Content items) -----
+      # ----- C# manual build -----
       - name: Install .NET 8
         if: ${{ matrix.language == 'csharp' }}
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "8.0.x"
 
-      - name: Set up Rust
+      # The WinUI project copies these files from target\release\ as Content items.
+      # For CodeQL analysis we only need them to exist; compiling Rust here is slow.
+      - name: Create engine placeholder artifacts
         if: ${{ matrix.language == 'csharp' }}
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build Rust release artifacts
-        if: ${{ matrix.language == 'csharp' }}
-        run: cargo build --release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "target/release" | Out-Null
+          New-Item -ItemType File -Force -Path "target/release/escpe.exe" | Out-Null
+          New-Item -ItemType File -Force -Path "target/release/escpe_core.dll" | Out-Null
 
       - name: Build C# (WinUI and tests)
         if: ${{ matrix.language == 'csharp' }}
