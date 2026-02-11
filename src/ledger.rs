@@ -16,14 +16,6 @@ use crate::util;
 
 pub const LEDGER_SCHEMA_VERSION: i64 = 1;
 
-// Decode a base64-encoded certificate without leaking the raw base64 value into error strings.
-fn decode_cert_der_b64(b64: &str) -> Result<Vec<u8>> {
-    use base64::Engine as _;
-    base64::engine::general_purpose::STANDARD
-        .decode(b64)
-        .map_err(|_| EscpeError::Ledger("invalid signer cert_der_b64".into()))
-}
-
 // ---------------------------------------------------------------------------
 // Data types
 // ---------------------------------------------------------------------------
@@ -227,14 +219,6 @@ impl Ledger {
         entry_preimage.extend_from_slice(input.signer.key_id.as_bytes());
         let entry_hash = util::sha256(&entry_preimage);
 
-        let cert_der_opt = input
-            .signer
-            .cert_der_b64
-            .as_deref()
-            .map(decode_cert_der_b64)
-            .transpose()?;
-        let cert_fp_opt = cert_der_opt.as_deref().map(util::sha256_hex);
-
         tx.execute(
             r#"
             INSERT INTO entries(
@@ -253,8 +237,8 @@ impl Ledger {
                 input.signature_der,
                 input.signer.key_id,
                 input.signer.kind,
-                cert_der_opt,
-                cert_fp_opt,
+                None::<Vec<u8>>,
+                None::<String>,
             ],
         )
         .ctx_ledger("insert ledger entry")?;
@@ -286,7 +270,7 @@ impl Ledger {
             .prepare(
                 r#"
                 SELECT seq, ts_utc, serial, payload_json, payload_hash, prev_hash, entry_hash,
-                       signature_der, signer_key_id, signer_kind, signer_cert_der
+                       signature_der, signer_key_id, signer_kind
                 FROM entries
                 ORDER BY seq ASC
                 "#,
@@ -306,7 +290,6 @@ impl Ledger {
             let signature_der: Vec<u8> = row.get(7)?;
             let signer_key_id: String = row.get(8)?;
             let signer_kind: String = row.get(9)?;
-            let signer_cert_der: Option<Vec<u8>> = row.get(10)?;
 
             out.push(LedgerEntry {
                 seq,
@@ -319,7 +302,6 @@ impl Ledger {
                 signature_b64: util::b64_encode(&signature_der),
                 signer: SignerDescriptor {
                     key_id: signer_key_id,
-                    cert_der_b64: signer_cert_der.as_deref().map(util::b64_encode),
                     kind: signer_kind,
                 },
             });
@@ -483,13 +465,6 @@ pub fn import_ledger_json(
         let entry_hash = hex::decode(&e.entry_hash_hex)
             .map_err(|err| EscpeError::Ledger(format!("decode entry_hash: {err}")))?;
         let sig_der = crate::util::b64_decode(&e.signature_b64)?;
-        let cert_der = e
-            .signer
-            .cert_der_b64
-            .as_deref()
-            .map(decode_cert_der_b64)
-            .transpose()?;
-        let cert_fp = cert_der.as_deref().map(crate::util::sha256_hex);
 
         conn.execute(
             r#"
@@ -509,8 +484,8 @@ pub fn import_ledger_json(
                 sig_der,
                 e.signer.key_id,
                 e.signer.kind,
-                cert_der,
-                cert_fp,
+                None::<Vec<u8>>,
+                None::<String>,
             ],
         )
         .ctx_ledger("insert imported entry")?;
@@ -652,7 +627,6 @@ mod tests {
                 signature_der: sig.to_der().as_bytes().to_vec(),
                 signer: SignerDescriptor {
                     key_id,
-                    cert_der_b64: None,
                     kind: "test".to_string(),
                 },
             })
@@ -675,7 +649,6 @@ mod tests {
         let key_id = util::sha256_hex(vk.to_encoded_point(false).as_bytes());
         let signer = SignerDescriptor {
             key_id,
-            cert_der_b64: None,
             kind: "test".to_string(),
         };
 

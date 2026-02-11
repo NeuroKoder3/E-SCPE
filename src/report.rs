@@ -335,7 +335,6 @@ mod tests {
                 signature_b64: "sig".into(),
                 signer: crate::signing::SignerDescriptor {
                     key_id: "kid".into(),
-                    cert_der_b64: None,
                     kind: "test".into(),
                 },
             },
@@ -350,7 +349,6 @@ mod tests {
                 signature_b64: "sig2".into(),
                 signer: crate::signing::SignerDescriptor {
                     key_id: "kid".into(),
-                    cert_der_b64: None,
                     kind: "test".into(),
                 },
             },

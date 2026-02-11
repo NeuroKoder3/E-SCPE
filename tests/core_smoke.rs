@@ -56,7 +56,6 @@ fn ledger_hash_chain_detects_tamper() -> Result<()> {
     let key_id = util::sha256_hex(vk.to_encoded_point(false).as_bytes());
     let signer = SignerDescriptor {
         key_id,
-        cert_der_b64: None,
         kind: "test-p256".to_string(),
     };
 

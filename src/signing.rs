@@ -20,11 +20,11 @@ use crate::util;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignerDescriptor {
-    /// SHA-256 fingerprint of the signing certificate (hex), if provided.
+    /// Stable signer identifier (SHA-256 hex).
+    ///
+    /// - If a signing certificate is provided, this is the SHA-256 fingerprint of the cert DER.
+    /// - Otherwise, this is the SHA-256 fingerprint of the uncompressed public key bytes.
     pub key_id: String,
-    /// DER bytes of the certificate used for verification (base64), if provided.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cert_der_b64: Option<String>,
     /// Human-readable descriptor (e.g., "p256-ecdsa/pkcs8-pem").
     pub kind: String,
 }
@@ -74,25 +74,23 @@ impl P256PemSigner {
         let signing_key = SigningKey::from_pkcs8_pem(&key_pem)
             .ctx_signing("parse P-256 PKCS#8 private key")?;
 
-        let (key_id, cert_der_b64) = if let Some(cert_pem_path) = cert_pem_path {
+        let key_id = if let Some(cert_pem_path) = cert_pem_path {
             let cert_pem_bytes = std::fs::read(cert_pem_path)
                 // Avoid including cert paths in error strings (CodeQL cleartext logging).
                 .map_err(|e| EscpeError::Signing(format!("read cert pem failed: {e}")))?;
             let (_, pem) = parse_x509_pem(&cert_pem_bytes).ctx_signing("parse x509 pem")?;
             let cert_der = pem.contents;
-            let fp = util::sha256_hex(&cert_der);
-            (fp, Some(util::b64_encode(&cert_der)))
+            util::sha256_hex(&cert_der)
         } else {
             let vk = VerifyingKey::from(&signing_key);
             let pubkey = vk.to_encoded_point(false);
-            (util::sha256_hex(pubkey.as_bytes()), None)
+            util::sha256_hex(pubkey.as_bytes())
         };
 
         Ok(Self {
             signing_key,
             descriptor: SignerDescriptor {
                 key_id,
-                cert_der_b64,
                 kind: "p256-ecdsa/pkcs8-pem".to_string(),
             },
         })
