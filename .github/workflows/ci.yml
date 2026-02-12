@@ -38,7 +38,7 @@ jobs:
         run: cargo install cargo-cyclonedx --locked
 
       - name: Generate SBOM (CycloneDX)
-        run: cargo cyclonedx --format json --output-file sbom.cdx.json
+        run: cargo cyclonedx --format json --override-filename sbom
 
       - name: Dotnet restore (test project)
         run: dotnet restore winui.tests/EscpeWinUI.Tests.csproj
@@ -56,4 +56,4 @@ jobs:
           path: |
             target/release/escpe.exe
             target/release/escpe_core.dll
-            sbom.cdx.json
+            sbom.json
