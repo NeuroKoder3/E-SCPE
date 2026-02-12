@@ -5,14 +5,15 @@
 # Docs: https://embarkstudios.github.io/cargo-deny/
 
 [advisories]
-# The advisories section configures vulnerability auditing
-vulnerability = "deny"
-unmaintained = "warn"
+# vulnerability, unsound, and notice are now always errors (removed fields).
+# unmaintained: "all" | "workspace" | "transitive" | "none"
+unmaintained = "workspace"
 yanked = "warn"
-notice = "warn"
 
 [licenses]
-# Allow commonly used permissive licenses.
+# All licenses are denied unless explicitly allowed.
+# The removed fields (unlicensed, copyleft, deny, default, allow-osi-fsf-free)
+# are no longer needed -- deny-by-default is the only mode.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -25,13 +26,19 @@ allow = [
     "OpenSSL",
     "CC0-1.0",
 ]
-copyleft = "deny"
-unlicensed = "deny"
 
-# The Proprietary license is our own crate.
-[[licenses.exceptions]]
-allow = ["Proprietary"]
-name = "escpe"
+# Our own crate uses a custom (non-SPDX) license.
+exceptions = [
+    { crate = "escpe", allow = ["LicenseRef-Proprietary"] },
+]
+
+# ring uses a combination of licenses.
+[[licenses.clarify]]
+crate = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0x001c7e6c },
+]
 
 [bans]
 # Deny multiple versions of the same crate to keep binary size down.

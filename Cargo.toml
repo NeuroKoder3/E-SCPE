@@ -3,7 +3,7 @@ name = "escpe"
 version = "1.0.0"
 edition = "2021"
 description = "Entanglement-Enhanced Supply-Chain Provenance Engine (E-SCPE)"
-license = "Proprietary"
+license = "LicenseRef-Proprietary"
 readme = "README.md"
 build = "build.rs"
 
