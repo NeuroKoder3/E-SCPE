@@ -346,7 +346,7 @@ pub unsafe extern "C" fn escpe_verify_ledger(
                 .cert_der_b64
                 .as_deref()
                 .ok_or_else(|| EscpeError::Ledger(format!("missing signer certificate at seq {}", e.seq)))?;
-            let cert_der = crate::util::b64_decode(cert_b64)?;
+            let cert_der = crate::util::decode_cert_der_b64(cert_b64)?;
             let fp = crate::util::sha256_hex(&cert_der);
             if fp != e.signer.key_id {
                 return Err(EscpeError::Ledger(format!(

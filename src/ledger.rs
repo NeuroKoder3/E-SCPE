@@ -14,6 +14,12 @@ use crate::error::{EscpeError, Result, ResultExt as _};
 use crate::signing::SignerDescriptor;
 use crate::util;
 
+/// Decode a base64-encoded certificate DER blob **without** including the raw
+/// material in any error message.  Delegates to [`util::decode_cert_der_b64`].
+fn decode_cert_der_b64(b64: &str) -> Result<Vec<u8>> {
+    util::decode_cert_der_b64(b64)
+}
+
 pub const LEDGER_SCHEMA_VERSION: i64 = 1;
 
 // ---------------------------------------------------------------------------
@@ -229,7 +235,7 @@ impl Ledger {
             .signer
             .cert_der_b64
             .as_deref()
-            .map(util::b64_decode)
+            .map(decode_cert_der_b64)
             .transpose()?;
         let signer_cert_fp: Option<String> = if let Some(ref der) = signer_cert_der {
             Some(util::sha256_hex(der))
@@ -518,7 +524,7 @@ pub fn import_ledger_json(
             .signer
             .cert_der_b64
             .as_deref()
-            .map(crate::util::b64_decode)
+            .map(decode_cert_der_b64)
             .transpose()?;
         let signer_cert_fp: Option<String> = signer_cert_der
             .as_deref()
@@ -572,7 +578,7 @@ pub fn import_ledger_json(
             .cert_der_b64
             .as_deref()
             .ok_or_else(|| EscpeError::Ledger(format!("missing signer certificate at seq {}", e.seq)))?;
-        let cert_der = crate::util::b64_decode(cert_b64)?;
+        let cert_der = decode_cert_der_b64(cert_b64)?;
         let fp = crate::util::sha256_hex(&cert_der);
         if fp != e.signer.key_id {
             return Err(EscpeError::Ledger(format!(

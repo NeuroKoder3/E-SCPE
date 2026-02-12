@@ -35,6 +35,16 @@ pub fn b64_decode(s: &str) -> Result<Vec<u8>> {
         .map_err(|e| EscpeError::Other(format!("invalid base64: {e}")))
 }
 
+/// Decode a base64-encoded certificate DER blob **without** including the raw
+/// material (or the base64 input) in any error message.  This prevents
+/// cleartext logging of sensitive cryptographic material
+/// (CodeQL `rust/cleartext-logging`).
+pub fn decode_cert_der_b64(s: &str) -> Result<Vec<u8>> {
+    base64::engine::general_purpose::STANDARD
+        .decode(s)
+        .map_err(|_| EscpeError::Ledger("signer certificate: invalid base64 encoding".into()))
+}
+
 // ---------------------------------------------------------------------------
 // Time
 // ---------------------------------------------------------------------------

@@ -365,7 +365,7 @@ fn main() -> Result<()> {
                             "missing signer certificate at seq {}",
                             e.seq
                         )))?;
-                    let cert_der = util::b64_decode(cert_b64)?;
+                    let cert_der = util::decode_cert_der_b64(cert_b64)?;
                     let fp = util::sha256_hex(&cert_der);
                     if fp != e.signer.key_id {
                         return Err(escpe_core::error::EscpeError::Ledger(format!(
