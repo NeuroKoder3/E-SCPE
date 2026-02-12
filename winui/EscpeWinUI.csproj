@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
         <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+        <!-- Allow dotnet restore/build on non-Windows CI runners (e.g. Dependabot on Linux) -->
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <OutputType>WinExe</OutputType>
 
         <!-- WinUI 3 -->
