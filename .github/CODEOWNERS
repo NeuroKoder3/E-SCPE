@@ -1,0 +1,24 @@
+# Code Owners for E-SCPE
+# These users will be automatically requested for review on pull requests.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @NeuroKoder3
+
+# Rust core engine
+/src/ @NeuroKoder3
+/Cargo.toml @NeuroKoder3
+/Cargo.lock @NeuroKoder3
+/tests/ @NeuroKoder3
+/benches/ @NeuroKoder3
+
+# WinUI desktop app
+/winui/ @NeuroKoder3
+/winui.tests/ @NeuroKoder3
+
+# CI/CD and GitHub config
+/.github/ @NeuroKoder3
+
+# Security-sensitive files
+/deny.toml @NeuroKoder3
+/SECURITY.md @NeuroKoder3
