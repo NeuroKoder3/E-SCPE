@@ -26,7 +26,7 @@ rcgen = "0.14"
 regex = "1"
 # NOTE: `printpdf` 0.9+ removed the legacy PDF-writing APIs used by `src/report.rs`.
 # Pin to a compatible series for the lightweight fallback PDF generator.
-printpdf = "0.5"
+printpdf = "0.9"
 rustls-pki-types = "1"
 rusqlite = { version = "0.38", features = ["bundled-sqlcipher-vendored-openssl"] }
 secrecy = "0.10"
