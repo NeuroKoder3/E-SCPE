@@ -44,7 +44,7 @@ x509-parser = "0.18"
 zeroize = "1"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55"
+winreg = "0.56"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
