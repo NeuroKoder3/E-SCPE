@@ -17,7 +17,7 @@ base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 csv = "1"
 ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8"] }
-pbkdf2 = "0.12"
+pbkdf2 = "0.13"
 hmac = "0.13"
 hex = "0.4"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
