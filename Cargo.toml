@@ -39,7 +39,7 @@ toml = "1.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-x509-cert = { version = "0.2", features = ["pem"] }
+x509-cert = { version = "0.3", features = ["pem"] }
 x509-parser = "0.18"
 zeroize = "1"
 
